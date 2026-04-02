@@ -3,24 +3,16 @@
 *.o
 *.obj
 *.out
-build/
-dist/
-
 # Dependencies
-vendor/
-.libs/
-
 # Logs and temp files
 *.log
 *.tmp
-
+*.swp
 # Environment
 .env
 .env.local
-*.env.*
-
+.env.*
 # Editors
 .vscode/
 .idea/
-*.swp
 ```

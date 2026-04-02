@@ -1,0 +1,22 @@
+[package]
+name    = "cpm"
+version = "0.1.0"
+authors = ["Developer <dev@example.com>"]
+license = "MIT"
+lang    = "c"
+std     = "c17"
+
+[dependencies]
+
+[dev-dependencies]
+cmocka = "^1.1"
+
+[build]
+cc      = "gcc"
+cflags  = ["-O2", "-Wall", "-Wextra", "-std=c17"]
+ldflags = []
+
+[scripts]
+build   = "gcc -O2 -Wall -Wextra -std=c17 -Iinclude src/*.c -o bin/cpm"
+test    = "cpm compile tests/*.c -o bin/tests && ./bin/tests"
+clean   = "rm -rf bin/ .cpm/build/"

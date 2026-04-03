@@ -9,9 +9,17 @@
 #include <ctype.h>
 #include <sys/stat.h>
 #include <sys/types.h>
-#include <unistd.h>
 #include <errno.h>
 #include "core/utils.h"
+
+#ifdef _WIN32
+  #include <windows.h>
+  /* Windows mkdir takes no mode argument */
+  static inline int cpm_mkdir_os(const char *path) { return mkdir(path); }
+#else
+  #include <unistd.h>
+  static inline int cpm_mkdir_os(const char *path) { return mkdir(path, 0755); }
+#endif
 
 char *cpm_read_file(const char *path) {
     FILE *f = fopen(path, "r");
@@ -53,7 +61,7 @@ int cpm_dir_exists(const char *path) {
 }
 
 int cpm_mkdir(const char *path) {
-    return mkdir(path, 0755);
+    return cpm_mkdir_os(path);
 }
 
 int cpm_mkdirs(const char *path) {
@@ -64,17 +72,21 @@ int cpm_mkdirs(const char *path) {
     for (char *p = tmp + 1; *p; p++) {
         if (*p == '/') {
             *p = '\0';
-            mkdir(tmp, 0755);
+            cpm_mkdir_os(tmp);
             *p = '/';
         }
     }
-    mkdir(tmp, 0755);
+    cpm_mkdir_os(tmp);
     return 0;
 }
 
 char *cpm_getcwd(void) {
     char *buf = malloc(1024);
+#ifdef _WIN32
+    if (GetCurrentDirectoryA(1024, buf)) return buf;
+#else
     if (getcwd(buf, 1024)) return buf;
+#endif
     free(buf);
     return NULL;
 }

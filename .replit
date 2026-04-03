@@ -20,9 +20,9 @@ args = "Build cpm"
 name = "Build cpm"
 author = "agent"
 
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "cd cpm && gcc -O2 -Wall -Wextra -std=c17 -Iinclude src/main.c src/registry.c src/resolver.c src/toml.c -o bin/cpm && echo 'Build successful!' && ./bin/cpm --help"
-
 [workflows.workflow.metadata]
 outputType = "console"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "cd /home/runner/workspace && gcc -O2 -Wall -Wextra -std=c17 -Icpm/include cpm/src/main.c cpm/src/toml.c cpm/src/registry.c cpm/src/resolver.c cpm/src/core/utils.c cpm/src/core/manifest.c cpm/src/mock/registry_mock.c cpm/src/commands/cmd_init.c cpm/src/commands/cmd_add.c cpm/src/commands/cmd_install.c cpm/src/commands/cmd_build.c cpm/src/commands/cmd_run.c cpm/src/commands/cmd_remove.c cpm/src/commands/cmd_update.c cpm/src/commands/cmd_publish.c -o cpm/bin/cpm && echo 'Build successful!' && cpm/bin/cpm --help"

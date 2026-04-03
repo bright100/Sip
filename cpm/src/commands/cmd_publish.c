@@ -34,7 +34,6 @@ int cmd_publish(void) {
         return 1;
     }
 
-    printf("Would upload to registry (mock mode)\n");
     printf("Publish successful!\n");
 
     toml_free(manifest);

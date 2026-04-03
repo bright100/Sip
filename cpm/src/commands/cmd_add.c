@@ -16,7 +16,7 @@ int cmd_add(const char *package, const char *version, int dev_mode) {
         printf("@%s", version);
     printf("%s...\n", dev_mode ? " (dev)" : "");
 
-    if (!mock_registry_exists(package)) {
+    if (!registry_exists(package)) {
         fprintf(stderr, "error: package '%s' not found in registry\n", package);
         fprintf(stderr, "hint: try 'cpm add libcurl', 'cpm add zlib', etc.\n");
         return 1;

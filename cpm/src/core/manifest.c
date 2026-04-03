@@ -193,18 +193,18 @@ int resolve_deps(toml_table_t *manifest, lockfile_t **result) {
         const char *name = strchr(k, '.') + 1;
         const char *constraint = manifest->pairs[i].value;
 
-        if (!mock_registry_exists(name)) {
+        if (!registry_exists(name)) {
             fprintf(stderr, "error: package '%s' not found in registry\n", name);
             lockfile_free(lock);
             return -1;
         }
-        const char *version = mock_registry_get_version(name, constraint);
+        const char *version = registry_get_version(name, constraint);
         if (!version) {
             fprintf(stderr, "error: no version of '%s' satisfies '%s'\n", name, constraint);
             lockfile_free(lock);
             return -1;
         }
-        const char *pkg_lang  = mock_registry_get_lang(name);
+        const char *pkg_lang  = registry_get_lang(name);
         const char *proj_lang = toml_get(manifest, "package.lang");
         if (!proj_lang) proj_lang = "c";
         if (strcmp(proj_lang, "c") == 0 && strcmp(pkg_lang, "c++") == 0) {
@@ -221,7 +221,7 @@ int resolve_deps(toml_table_t *manifest, lockfile_t **result) {
         lock->packages[lock->count].dep_count = 0;
         lock->count++;
 
-        const char *trans = mock_registry_get_deps(name, version);
+        const char *trans = registry_get_deps(name, version);
         if (trans && strlen(trans) > 0) {
             char *copy = strdup(trans);
             char *tok = strtok(copy, ",");
@@ -229,8 +229,8 @@ int resolve_deps(toml_table_t *manifest, lockfile_t **result) {
                 int found = 0;
                 for (size_t j = 0; j < lock->count - 1; j++)
                     if (strcmp(lock->packages[j].name, tok) == 0) { found = 1; break; }
-                if (!found && mock_registry_exists(tok)) {
-                    const char *tv = mock_registry_get_version(tok, "*");
+                if (!found && registry_exists(tok)) {
+                    const char *tv = registry_get_version(tok, "*");
                     if (tv) {
                         lock->packages[lock->count].name     = strdup(tok);
                         lock->packages[lock->count].version  = strdup(tv);
@@ -259,8 +259,8 @@ int fetch_package(const char *name, const char *version, const char *source) {
     snprintf(cache_path, sizeof(cache_path), "%s/src/%s-%s", CPM_CACHE_DIR, name, version);
     if (cpm_dir_exists(cache_path)) { printf("  Already cached\n"); return 0; }
     cpm_mkdirs(cache_path);
-    const char *libtype = mock_registry_get_libtype(name);
-    const char *lang    = mock_registry_get_lang(name);
+    const char *libtype = registry_get_libtype(name);
+    const char *lang    = registry_get_lang(name);
     char src_path[1024];
     snprintf(src_path, sizeof(src_path), "%s/include", cache_path);
     cpm_mkdirs(src_path);
@@ -292,7 +292,7 @@ int fetch_package(const char *name, const char *version, const char *source) {
 }
 
 int build_package(const char *name, const char *version, const char *lang, const char *std) {
-    const char *libtype = mock_registry_get_libtype(name);
+    const char *libtype = registry_get_libtype(name);
     if (strcmp(libtype, "header-only") == 0) { printf("  %s is header-only, skipping\n", name); return 0; }
     printf("  Building %s...\n", name);
     char cache_path[1024];
@@ -346,7 +346,7 @@ int generate_flags_file(lockfile_t *lock) {
     p += sprintf(p, "\"\n");
     p += sprintf(p, "CPM_LIBS=\"");
     for (size_t i = 0; i < lock->count; i++) {
-        if (strcmp(mock_registry_get_libtype(lock->packages[i].name), "header-only") != 0)
+        if (strcmp(registry_get_libtype(lock->packages[i].name), "header-only") != 0)
             p += sprintf(p, "-l%s ", lock->packages[i].name);
     }
     p += sprintf(p, "\"\n");
@@ -362,7 +362,7 @@ int generate_compile_commands(lockfile_t *lock) {
     p += sprintf(p, "[\n");
     int first = 1;
     for (size_t i = 0; i < lock->count; i++) {
-        if (strcmp(mock_registry_get_libtype(lock->packages[i].name), "header-only") == 0) continue;
+        if (strcmp(registry_get_libtype(lock->packages[i].name), "header-only") == 0) continue;
         if (!first) p += sprintf(p, ",\n");
         first = 0;
         p += sprintf(p, "  {\n    \"directory\": \"%s\",\n    \"command\": \"gcc -c -O2 -std=c17 ", cwd ? cwd : ".");

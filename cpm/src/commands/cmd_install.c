@@ -42,7 +42,7 @@ int cmd_install(int update_mode) {
     for (size_t i = 0; i < lock->count; i++) {
         const char *name    = lock->packages[i].name;
         const char *version = lock->packages[i].version;
-        const char *lang    = mock_registry_get_lang(name);
+        const char *lang    = registry_get_lang(name);
 
         toml_table_t *m = manifest_load();
         const char *std = m ? toml_get(m, "package.std") : NULL;

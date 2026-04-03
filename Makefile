@@ -8,7 +8,6 @@ SRCS =  cpm/src/main.c \
         cpm/src/resolver.c \
         cpm/src/core/utils.c \
         cpm/src/core/manifest.c \
-        cpm/src/mock/registry_mock.c \
         cpm/src/commands/cmd_init.c \
         cpm/src/commands/cmd_add.c \
         cpm/src/commands/cmd_install.c \

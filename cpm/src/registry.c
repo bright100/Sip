@@ -42,7 +42,7 @@
 #define MAX_DEPS           32
 #define NAME_LEN           128
 #define VER_LEN            32
-#define URL_LEN            1024
+#define URL_LEN            2048
 #define DESC_LEN           512
 
 /* ── In-memory store ────────────────────────────────────────────────────── */
@@ -175,6 +175,7 @@ static char *json_str(const char *json, const char *key)
 }
 
 /* Fill arr[] with string values from the JSON array at key. Returns count. */
+__attribute__((unused))
 static int json_str_arr(const char *json, const char *key,
                          char arr[][VER_LEN], int max)
 {

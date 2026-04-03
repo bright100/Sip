@@ -62,9 +62,117 @@ detect_arch() {
 
 # ── Check for required tools ─────────────────────────────────
 need_cmd() {
-  if ! command -v "$1" >/dev/null 2>&1; then
-    error "required command not found: $1"
+  if command -v "$1" >/dev/null 2>&1; then
+    return 0
   fi
+  return 1
+}
+
+# ── Windows: Install build tools ─────────────────────────────
+windows_install_build_tools() {
+  info "Checking for required build tools on Windows..."
+  
+  local need_gcc=0
+  local need_make=0
+  
+  if ! command -v gcc >/dev/null 2>&1; then
+    warn "gcc not found"
+    need_gcc=1
+  fi
+  
+  if ! command -v make >/dev/null 2>&1; then
+    warn "make not found"
+    need_make=1
+  fi
+  
+  if [ $need_gcc -eq 0 ] && [ $need_make -eq 0 ]; then
+    success "All required build tools are installed"
+    return 0
+  fi
+  
+  # Try winget first (recommended)
+  if command -v winget >/dev/null 2>&1; then
+    info "Using winget to install missing tools..."
+    
+    if [ $need_gcc -eq 1 ]; then
+      info "Installing MinGW-w64 (gcc) via winget..."
+      winget install --id MSYS2.MSYS2 --silent || \
+      winget install --id Brechtjer.MinGW-w64 --silent || \
+      warn "Failed to install gcc via winget"
+    fi
+    
+    if [ $need_make -eq 1 ]; then
+      info "Installing make via winget..."
+      winget install --id MSYS2.MSYS2 --silent || \
+      winget install --id GnuWin32.Make --silent || \
+      warn "Failed to install make via winget"
+    fi
+    
+    # Refresh PATH after winget install
+    export PATH="/c/msys64/mingw64/bin:/c/Program Files (x86)/GnuWin32/bin:$PATH"
+    
+    # Verify installation
+    if command -v gcc >/dev/null 2>&1 && command -v make >/dev/null 2>&1; then
+      success "Build tools installed successfully via winget"
+      return 0
+    fi
+  fi
+  
+  # Try chocolatey
+  if command -v choco >/dev/null 2>&1; then
+    info "Using chocolatey to install missing tools..."
+    
+    if [ $need_gcc -eq 1 ]; then
+      info "Installing mingw via chocolatey..."
+      choco install mingw -y || warn "Failed to install gcc via chocolatey"
+    fi
+    
+    if [ $need_make -eq 1 ]; then
+      info "Installing make via chocolatey..."
+      choco install make -y || warn "Failed to install make via chocolatey"
+    fi
+    
+    # Refresh PATH
+    export PATH="/c/tools/mingw64/bin:$PATH"
+    
+    if command -v gcc >/dev/null 2>&1 && command -v make >/dev/null 2>&1; then
+      success "Build tools installed successfully via chocolatey"
+      return 0
+    fi
+  fi
+  
+  # Try scoop
+  if command -v scoop >/dev/null 2>&1; then
+    info "Using scoop to install missing tools..."
+    
+    if [ $need_gcc -eq 1 ]; then
+      info "Installing mingw via scoop..."
+      scoop install mingw || warn "Failed to install gcc via scoop"
+    fi
+    
+    if [ $need_make -eq 1 ]; then
+      info "Installing make via scoop..."
+      scoop install make || warn "Failed to install make via scoop"
+    fi
+    
+    if command -v gcc >/dev/null 2>&1 && command -v make >/dev/null 2>&1; then
+      success "Build tools installed successfully via scoop"
+      return 0
+    fi
+  fi
+  
+  # If we reach here, automatic installation failed
+  if [ $need_gcc -eq 1 ] || [ $need_make -eq 1 ]; then
+    error "Could not automatically install build tools. Please install manually:
+  - Option 1: Install MSYS2 from https://www.msys2.org/
+  - Option 2: Install MinGW-w64 from https://winlibs.com/
+  - Option 3: Use WSL (Windows Subsystem for Linux)
+  
+Then run the installer again."
+    return 1
+  fi
+  
+  return 0
 }
 
 # ── Download binary ──────────────────────────────────────────
@@ -200,11 +308,12 @@ main() {
   windows)
     windows_guide
     # Try to install anyway (WSL / MSYS2 / Cygwin environment)
-    if command -v gcc >/dev/null 2>&1; then
-      info "gcc found — building from source..."
+    # First, ensure build tools are available
+    if windows_install_build_tools; then
+      info "Build tools ready — building from source..."
       build_from_source
     else
-      exit 0
+      exit 1
     fi
     ;;
   macos)

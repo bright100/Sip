@@ -73,4 +73,7 @@ int cmd_init(int cpp_mode) {
     printf("\nNext steps:\n");
     printf("  cpm add <package>     # Add a dependency\n");
     printf("  cpm install           # Install dependencies\n");
+    
+    free(cwd);
+    return 0;
 }

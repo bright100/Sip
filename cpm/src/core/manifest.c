@@ -255,16 +255,16 @@ int resolve_deps(toml_table_t *manifest, lockfile_t **result) {
 int fetch_package(const char *name, const char *version, const char *source) {
     (void)source;
     printf("Fetching %s@%s...\n", name, version);
-    char cache_path[1024];
+    char cache_path[2048];
     snprintf(cache_path, sizeof(cache_path), "%s/src/%s-%s", CPM_CACHE_DIR, name, version);
     if (cpm_dir_exists(cache_path)) { printf("  Already cached\n"); return 0; }
     cpm_mkdirs(cache_path);
     const char *libtype = registry_get_libtype(name);
     const char *lang    = registry_get_lang(name);
-    char src_path[1024];
+    char src_path[2048];
     snprintf(src_path, sizeof(src_path), "%s/include", cache_path);
     cpm_mkdirs(src_path);
-    char header_path[1024];
+    char header_path[2048];
     snprintf(header_path, sizeof(header_path), "%s/%s.h", src_path, name);
     FILE *f = fopen(header_path, "w");
     if (f) {
@@ -276,10 +276,10 @@ int fetch_package(const char *name, const char *version, const char *source) {
         fclose(f);
     }
     if (strcmp(libtype, "header-only") != 0) {
-        char lib_path[1024];
+        char lib_path[2048];
         snprintf(lib_path, sizeof(lib_path), "%s/lib", cache_path);
         cpm_mkdirs(lib_path);
-        char src_file[1024];
+        char src_file[2048];
         snprintf(src_file, sizeof(src_file), "%s/%s.c", cache_path, name);
         f = fopen(src_file, "w");
         if (f) {
@@ -295,15 +295,15 @@ int build_package(const char *name, const char *version, const char *lang, const
     const char *libtype = registry_get_libtype(name);
     if (strcmp(libtype, "header-only") == 0) { printf("  %s is header-only, skipping\n", name); return 0; }
     printf("  Building %s...\n", name);
-    char cache_path[1024];
+    char cache_path[2048];
     snprintf(cache_path, sizeof(cache_path), "%s/src/%s-%s", CPM_CACHE_DIR, name, version);
-    char build_path[1024];
+    char build_path[2048];
     snprintf(build_path, sizeof(build_path), "%s/build", cache_path);
     cpm_mkdirs(build_path);
     const char *compiler = strcmp(lang, "c++") == 0 ? "g++" : "gcc";
     const char *stdflag  = strcmp(lang, "c++") == 0 ? "-std=c++17" : "-std=c17";
     (void)std;
-    char obj_path[1024], cmd[4096], lib_path[1024];
+    char obj_path[2048], cmd[8192], lib_path[2048];
     snprintf(obj_path, sizeof(obj_path), "%s/%s.o", build_path, name);
     snprintf(cmd, sizeof(cmd), "%s %s -O2 -fPIC -I%s/include -c %s/%s.c -o %s 2>/dev/null",
              compiler, stdflag, cache_path, cache_path, name, obj_path);
@@ -317,7 +317,7 @@ int build_package(const char *name, const char *version, const char *lang, const
 
 int install_package(const char *name, const char *version) {
     printf("  Installing %s@%s...\n", name, version);
-    char cache_path[1024], deps_path[1024], cmd[4096];
+    char cache_path[2048], deps_path[2048], cmd[8192];
     snprintf(cache_path, sizeof(cache_path), "%s/src/%s-%s", CPM_CACHE_DIR, name, version);
     snprintf(deps_path, sizeof(deps_path), "%s/%s-%s", CPM_DEPS_DIR, name, version);
     cpm_mkdirs(deps_path);

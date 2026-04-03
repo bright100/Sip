@@ -1,6 +1,7 @@
 CC      = gcc
-CFLAGS  = -O2 -Wall -Wextra -std=c17
+CFLAGS  = -O2 -Wall -Wextra -std=c17 -Wno-format-truncation
 IFLAGS  = -Icpm/include
+LDFLAGS = -lcurl
 
 SRCS =  cpm/src/main.c \
         cpm/src/toml.c \
@@ -22,7 +23,8 @@ TARGET  = cpm/bin/cpm
 all: $(TARGET)
 
 $(TARGET): $(SRCS)
-	$(CC) $(CFLAGS) $(IFLAGS) $(SRCS) -o $(TARGET)
+	@mkdir -p cpm/bin
+	$(CC) $(CFLAGS) $(IFLAGS) $(SRCS) $(LDFLAGS) -o $(TARGET)
 
 clean:
 	rm -f $(TARGET)

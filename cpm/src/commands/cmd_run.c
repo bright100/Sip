@@ -118,7 +118,7 @@ static void scan_dir(const char *dir, char **exts) {
             scan_dir(path, exts);
         } else if (S_ISREG(st.st_mode) && ext_matches(e->d_name, exts)) {
             if (g_nfiles < MAX_WATCH_FILES) {
-                strncpy(g_files[g_nfiles].path, path, sizeof(g_files[g_nfiles].path) - 1);
+                snprintf(g_files[g_nfiles].path, sizeof(g_files[g_nfiles].path), "%s", path);
                 g_files[g_nfiles].mtime = st.st_mtime;
                 g_nfiles++;
             }

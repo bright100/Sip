@@ -1,6 +1,6 @@
 CC      = gcc
 CFLAGS  = -O2 -Wall -Wextra -std=c17 -Wno-format-truncation
-IFLAGS  = -Icpm/include
+IFLAGS  = -Icpm/include -I/usr/include/x86_64-linux-gnu
 LDFLAGS = -lcurl
 
 SRCS =  cpm/src/main.c \

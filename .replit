@@ -1,0 +1,28 @@
+[agent]
+expertMode = true
+
+[nix]
+channel = "stable-25_05"
+
+[workflows]
+runButton = "Project"
+
+[[workflows.workflow]]
+name = "Project"
+mode = "parallel"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "Build cpm"
+
+[[workflows.workflow]]
+name = "Build cpm"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "cd cpm && gcc -O2 -Wall -Wextra -std=c17 -Iinclude src/main.c src/registry.c src/resolver.c src/toml.c -o bin/cpm && echo 'Build successful!' && ./bin/cpm --help"
+
+[workflows.workflow.metadata]
+outputType = "console"

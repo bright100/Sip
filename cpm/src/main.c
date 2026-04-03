@@ -3,6 +3,7 @@
  * Main entry point with full CLI implementation
  */
 
+#define _POSIX_C_SOURCE 200809L
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -13,7 +14,6 @@
 #include <dirent.h>
 #include <errno.h>
 #include <time.h>
-#define _POSIX_C_SOURCE 200809L
 #include "toml.h"
 #include "registry.h"
 #include "resolver.h"

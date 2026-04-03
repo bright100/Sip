@@ -1,0 +1,49 @@
+//cpm/
+├── include/
+│   ├── core/
+│   │   ├── types.h          # Core type definitions (package_t, version_t, etc.)
+│   │   ├── utils.h          # Utility function declarations
+│   │   └── manifest.h       # Manifest handling declarations
+│   ├── commands/
+│   │   ├── cmd_init.h       # Init command
+│   │   ├── cmd_add.h        # Add dependency command
+│   │   ├── cmd_install.h    # Install dependencies command
+│   │   ├── cmd_build.h      # Build command
+│   │   ├── cmd_run.h        # Run script command
+│   │   ├── cmd_remove.h     # Remove dependency command
+│   │   ├── cmd_update.h     # Update dependencies command
+│   │   └── cmd_publish.h    # Publish package command
+│   ├── mock/
+│   │   └── registry_mock.h  # Mock registry for demo
+│   ├── toml.h               # TOML parser header
+│   ├── registry.h           # Registry client header
+│   └── resolver.h           # Dependency resolver header
+│
+├── src/
+│   ├── main.c               # Main entry point with CLI
+│   ├── core/
+│   │   ├── utils.c          # Utility functions implementation
+│   │   └── manifest.c       # Manifest handling implementation
+│   ├── commands/
+│   │   ├── cmd_init.c       # Init command implementation
+│   │   ├── cmd_add.c        # Add command implementation
+│   │   ├── cmd_install.c    # Install command implementation
+│   │   ├── cmd_build.c      # Build command implementation
+│   │   ├── cmd_run.c        # Run command implementation
+│   │   ├── cmd_remove.c     # Remove command implementation
+│   │   ├── cmd_update.c     # Update command implementation
+│   │   └── cmd_publish.c    # Publish command implementation
+│   ├── mock/
+│   │   └── registry_mock.c  # Mock registry implementation
+│   ├── toml.c               # TOML parser implementation
+│   ├── registry.c           # Registry client stubs
+│   └── resolver.c           # Dependency resolver stubs
+│
+├── bin/
+│   └── cpm                  # Compiled binary
+└── cpm.toml                 # Project configuration
+
+
+also add a readme and move the cpm.md to it also add lot of emojis to it.
+also create an install.sh that does the installation on windows, mac or linux.
+add winget install brew install cpm-pkg and curl -fsSL https://cpm.dev/install.sh  | sh and add nodemon capabilities using cpm run [-flags] make sure the nodemon capabilities are 100% acurate and responsive

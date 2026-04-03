@@ -8,7 +8,7 @@
 #include "commands/cmd_install.h"
 #include "core/manifest.h"
 #include "core/utils.h"
-#include "mock/registry_mock.h"
+#include "registry.h"
 #include "toml.h"
 
 int cmd_install(int update_mode) {

@@ -1,24 +1,21 @@
 /*
  * cpm — Init Command Implementation
  */
-
 #define _POSIX_C_SOURCE 200809L
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include "commands/cmd_init.h"
 #include "core/utils.h"
-
 int cmd_init(int cpp_mode) {
     printf("Initializing %s project...\n", cpp_mode ? "C++" : "C");
-
     if (cpm_file_exists("cpm.toml"))
         fprintf(stderr, "warning: cpm.toml already exists\n");
-
     char *cwd = cpm_getcwd();
+    /* Normalize backslashes to forward slashes (Windows compat) */
+    for (char *p = cwd; *p; p++) if (*p == '\\') *p = '/';
     char *proj = strrchr(cwd, '/');
     proj = proj ? proj + 1 : cwd;
-
     const char *tmpl =
         "[package]\n"
         "name    = \"%s\"\n"
@@ -37,7 +34,6 @@ int cmd_init(int cpp_mode) {
         "build   = \"cpm compile src/main.%s -o bin/%s\"\n"
         "test    = \"cpm compile tests/*.%s -o bin/tests && ./bin/tests\"\n"
         "clean   = \"rm -rf bin/ .cpm/build/\"\n";
-
     char manifest[2048];
     snprintf(manifest, sizeof(manifest), tmpl,
              proj,
@@ -47,18 +43,15 @@ int cmd_init(int cpp_mode) {
              cpp_mode ? "cpp" : "c",
              proj,
              cpp_mode ? "cpp" : "c");
-
     if (cpm_write_file("cpm.toml", manifest) != 0) {
         fprintf(stderr, "error: failed to create cpm.toml\n");
         free(cwd);
         return 1;
     }
-
     cpm_mkdir("src");
     cpm_mkdir("include");
     cpm_mkdir("tests");
     cpm_mkdir("bin");
-
     char main_file[64];
     snprintf(main_file, sizeof(main_file), "src/main.%s", cpp_mode ? "cpp" : "c");
     if (!cpm_file_exists(main_file)) {
@@ -74,15 +67,10 @@ int cmd_init(int cpp_mode) {
             fclose(f);
         }
     }
-
     printf("Created cpm.toml\n");
     printf("Created src/, include/, tests/, bin/ directories\n");
     printf("Created %s\n", main_file);
     printf("\nNext steps:\n");
     printf("  cpm add <package>     # Add a dependency\n");
     printf("  cpm install           # Install dependencies\n");
-    printf("  cpm run build         # Build the project\n");
-
-    free(cwd);
-    return 0;
 }

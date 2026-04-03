@@ -8,7 +8,7 @@
 #include "commands/cmd_add.h"
 #include "commands/cmd_install.h"
 #include "core/manifest.h"
-#include "mock/registry_mock.h"
+#include "registry.h"
 
 int cmd_add(const char *package, const char *version, int dev_mode) {
     printf("Adding %s", package);

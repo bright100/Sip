@@ -15,13 +15,20 @@
 #include <stdlib.h>
 #include <string.h>
 #include <signal.h>
-#include <unistd.h>
 #include <sys/stat.h>
 #include <sys/types.h>
-#include <sys/wait.h>
 #include <dirent.h>
 #include <time.h>
 #include <errno.h>
+
+#ifdef _WIN32
+  #include <windows.h>
+  #include <process.h>
+#else
+  #include <unistd.h>
+  #include <sys/wait.h>
+#endif
+
 #include "commands/cmd_run.h"
 #include "core/manifest.h"
 #include "toml.h"
@@ -34,12 +41,31 @@
 #define CLR_RED    "\033[1;31m"
 #define CLR_GREY   "\033[0;90m"
 
+/* ─── Cross-platform sleep (milliseconds) ───────────────────────────────── */
+static void sleep_ms(long ms) {
+#ifdef _WIN32
+    Sleep((DWORD)ms);
+#else
+    struct timespec ts = { ms / 1000, (ms % 1000) * 1000000L };
+    nanosleep(&ts, NULL);
+#endif
+}
+
+/* ─── Cross-platform child process handle ───────────────────────────────── */
+#ifdef _WIN32
+  typedef HANDLE child_t;
+  #define INVALID_CHILD NULL
+#else
+  typedef pid_t child_t;
+  #define INVALID_CHILD (-1)
+#endif
+
 /* ─── Watched-file state ────────────────────────────────────────────────── */
 #define MAX_WATCH_FILES 4096
 
 typedef struct {
-    char     path[1024];
-    time_t   mtime;
+    char   path[1024];
+    time_t mtime;
 } watch_entry_t;
 
 static watch_entry_t g_files[MAX_WATCH_FILES];
@@ -80,7 +106,6 @@ static void scan_dir(const char *dir, char **exts) {
     struct dirent *e;
     while ((e = readdir(d)) != NULL) {
         if (e->d_name[0] == '.') continue;
-        /* skip .cpm/ and bin/ */
         if (strcmp(e->d_name, ".cpm") == 0 || strcmp(e->d_name, "bin") == 0) continue;
 
         char path[1024];
@@ -93,7 +118,7 @@ static void scan_dir(const char *dir, char **exts) {
             scan_dir(path, exts);
         } else if (S_ISREG(st.st_mode) && ext_matches(e->d_name, exts)) {
             if (g_nfiles < MAX_WATCH_FILES) {
-                strncpy(g_files[g_nfiles].path,  path, sizeof(g_files[g_nfiles].path) - 1);
+                strncpy(g_files[g_nfiles].path, path, sizeof(g_files[g_nfiles].path) - 1);
                 g_files[g_nfiles].mtime = st.st_mtime;
                 g_nfiles++;
             }
@@ -115,7 +140,6 @@ static const char *check_changes(void) {
     return NULL;
 }
 
-/* Re-scan after change so new files are tracked */
 static void rescan(char **exts) {
     g_nfiles = 0;
     scan_dir(".", exts);
@@ -148,8 +172,72 @@ static void print_exit_banner(int code) {
 }
 
 /* ─── Child process management ──────────────────────────────────────────── */
+static volatile int g_running = 1;
+
+#ifdef _WIN32
+
+static HANDLE g_child_handle = NULL;
+
+static void sig_handler(int sig) {
+    if (sig == SIGINT || sig == SIGTERM) {
+        g_running = 0;
+        if (g_child_handle) TerminateProcess(g_child_handle, 1);
+    }
+}
+
+static HANDLE launch_child(const char *shell_cmd) {
+    STARTUPINFOA si;
+    PROCESS_INFORMATION pi;
+    ZeroMemory(&si, sizeof(si));
+    si.cb = sizeof(si);
+    ZeroMemory(&pi, sizeof(pi));
+
+    /* Build: cmd /C <shell_cmd> */
+    char cmd_line[2560];
+    snprintf(cmd_line, sizeof(cmd_line), "cmd /C %s", shell_cmd);
+
+    if (!CreateProcessA(NULL, cmd_line, NULL, NULL, FALSE, 0, NULL, NULL, &si, &pi)) {
+        fprintf(stderr, "[cpm] failed to launch process (error %lu)\n", GetLastError());
+        return NULL;
+    }
+    CloseHandle(pi.hThread);
+    return pi.hProcess;
+}
+
+static void kill_child(void) {
+    if (g_child_handle) {
+        TerminateProcess(g_child_handle, 1);
+        WaitForSingleObject(g_child_handle, 500);
+        CloseHandle(g_child_handle);
+        g_child_handle = NULL;
+    }
+}
+
+/* Returns exit code, or -1 if still running */
+static int poll_child(void) {
+    if (!g_child_handle) return -1;
+    DWORD code;
+    if (GetExitCodeProcess(g_child_handle, &code) && code != STILL_ACTIVE) {
+        CloseHandle(g_child_handle);
+        g_child_handle = NULL;
+        return (int)code;
+    }
+    return -1;
+}
+
+static int run_once(const char *shell_cmd) {
+    HANDLE h = launch_child(shell_cmd);
+    if (!h) return 1;
+    WaitForSingleObject(h, INFINITE);
+    DWORD code = 1;
+    GetExitCodeProcess(h, &code);
+    CloseHandle(h);
+    return (int)code;
+}
+
+#else /* POSIX */
+
 static volatile pid_t g_child_pid = -1;
-static volatile int   g_running = 1;
 
 static void sig_handler(int sig) {
     if (sig == SIGINT || sig == SIGTERM) {
@@ -161,7 +249,6 @@ static void sig_handler(int sig) {
 static pid_t launch_child(const char *shell_cmd) {
     pid_t pid = fork();
     if (pid == 0) {
-        /* child */
         execl("/bin/sh", "sh", "-c", shell_cmd, (char *)NULL);
         _exit(127);
     }
@@ -172,7 +259,6 @@ static void kill_child(void) {
     if (g_child_pid > 0) {
         kill(g_child_pid, SIGTERM);
         int status;
-        /* Give it 500ms then SIGKILL */
         struct timespec ts = { 0, 500000000L };
         nanosleep(&ts, NULL);
         if (waitpid(g_child_pid, &status, WNOHANG) == 0)
@@ -181,6 +267,26 @@ static void kill_child(void) {
         g_child_pid = -1;
     }
 }
+
+/* Returns exit code, or -1 if still running */
+static int poll_child(void) {
+    if (g_child_pid <= 0) return -1;
+    int status;
+    pid_t result = waitpid(g_child_pid, &status, WNOHANG);
+    if (result == g_child_pid) {
+        int code = WIFEXITED(status) ? WEXITSTATUS(status) : 1;
+        g_child_pid = -1;
+        return code;
+    }
+    return -1;
+}
+
+static int run_once(const char *shell_cmd) {
+    int ret = system(shell_cmd);
+    return WIFEXITED(ret) ? WEXITSTATUS(ret) : 1;
+}
+
+#endif /* _WIN32 */
 
 /* ─── Main command ──────────────────────────────────────────────────────── */
 
@@ -199,7 +305,6 @@ int cmd_run(const char *script, run_opts_t *opts) {
         return 1;
     }
 
-    /* Copy the command since manifest will be freed */
     char cmd_copy[2048];
     strncpy(cmd_copy, shell_cmd, sizeof(cmd_copy) - 1);
     cmd_copy[sizeof(cmd_copy) - 1] = '\0';
@@ -211,8 +316,7 @@ int cmd_run(const char *script, run_opts_t *opts) {
                CLR_CYAN, CLR_RESET,
                CLR_GREEN, script, CLR_RESET,
                CLR_GREY, cmd_copy, CLR_RESET);
-        int ret = system(cmd_copy);
-        return WIFEXITED(ret) ? WEXITSTATUS(ret) : 1;
+        return run_once(cmd_copy);
     }
 
     /* ── Watch mode ───────────────────────────────────────────────────── */
@@ -224,15 +328,19 @@ int cmd_run(const char *script, run_opts_t *opts) {
     int ext_count;
     char **exts = parse_extensions(ext_str, &ext_count);
 
-    /* Initial file scan */
     scan_dir(".", exts);
 
-    /* Install signal handlers */
+    signal(SIGINT,  sig_handler);
+    signal(SIGTERM, sig_handler);
+
+#ifndef _WIN32
+    /* Use sigaction on POSIX for reliable delivery */
     struct sigaction sa;
     memset(&sa, 0, sizeof(sa));
     sa.sa_handler = sig_handler;
     sigaction(SIGINT,  &sa, NULL);
     sigaction(SIGTERM, &sa, NULL);
+#endif
 
     printf("%s[cpm watch]%s starting...\n", CLR_CYAN, CLR_RESET);
     print_watch_banner(script, g_nfiles);
@@ -240,55 +348,53 @@ int cmd_run(const char *script, run_opts_t *opts) {
     /* First run */
     if (do_clear) system("clear");
     print_restart_banner(script);
+
+#ifdef _WIN32
+    g_child_handle = launch_child(cmd_copy);
+#else
     g_child_pid = launch_child(cmd_copy);
+#endif
 
-    /* Sleep granularity: 50ms */
-    struct timespec poll_interval = { 0, 50000000L };  /* 50ms */
-
-    long debounce_ticks   = (delay_ms + 49) / 50;      /* 50ms ticks */
+    long debounce_ticks   = (delay_ms + 49) / 50;
     long debounce_counter = 0;
     const char *changed_path = NULL;
 
     while (g_running) {
-        nanosleep(&poll_interval, NULL);
+        sleep_ms(50);
 
         /* Check if child exited naturally */
-        if (g_child_pid > 0) {
-            int status;
-            pid_t result = waitpid(g_child_pid, &status, WNOHANG);
-            if (result == g_child_pid) {
-                int code = WIFEXITED(status) ? WEXITSTATUS(status) : 1;
-                print_exit_banner(code);
-                g_child_pid = -1;
-                /* Stay alive in watch mode — wait for next change */
-                printf("%s[cpm]%s watching for changes...\n", CLR_GREY, CLR_RESET);
-            }
+        int exit_code = poll_child();
+        if (exit_code >= 0) {
+            print_exit_banner(exit_code);
+            printf("%s[cpm]%s watching for changes...\n", CLR_GREY, CLR_RESET);
         }
 
         /* Poll for file changes */
         const char *p = check_changes();
         if (p) {
-            changed_path   = p;
-            debounce_counter = debounce_ticks; /* start debounce */
+            changed_path     = p;
+            debounce_counter = debounce_ticks;
         }
 
-        /* Debounce: wait until no more changes for `delay_ms` */
         if (debounce_counter > 0) {
             debounce_counter--;
             if (debounce_counter == 0) {
-                /* Trigger restart */
                 kill_child();
                 rescan(exts);
 
                 if (do_clear) system("clear");
                 print_change_banner(verbose ? changed_path : NULL, script, verbose);
+
+#ifdef _WIN32
+                g_child_handle = launch_child(cmd_copy);
+#else
                 g_child_pid = launch_child(cmd_copy);
+#endif
                 changed_path = NULL;
             }
         }
     }
 
-    /* Cleanup */
     kill_child();
 
     for (int i = 0; exts[i]; i++) free(exts[i]);

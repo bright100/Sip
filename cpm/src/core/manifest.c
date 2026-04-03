@@ -9,7 +9,7 @@
 #include <time.h>
 #include "core/manifest.h"
 #include "core/utils.h"
-#include "mock/registry_mock.h"
+#include "registry.h"
 #include "toml.h"
 
 /* ── Manifest ─────────────────────────────────────────────────────────── */
@@ -418,3 +418,4 @@ int compile_project(const char *sources[], int source_count, const char *output)
     if (manifest) toml_free(manifest);
     return ret;
 }
+

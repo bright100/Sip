@@ -74,6 +74,7 @@ windows_install_build_tools() {
   
   local need_gcc=0
   local need_make=0
+  local need_curl_dev=0
   
   if ! command -v gcc >/dev/null 2>&1; then
     warn "gcc not found"
@@ -85,7 +86,13 @@ windows_install_build_tools() {
     need_make=1
   fi
   
-  if [ $need_gcc -eq 0 ] && [ $need_make -eq 0 ]; then
+  # Check for curl development headers by trying to compile a test file
+  if ! echo '#include <curl/curl.h>' | gcc -E - >/dev/null 2>&1; then
+    warn "curl development headers not found (curl/curl.h)"
+    need_curl_dev=1
+  fi
+  
+  if [ $need_gcc -eq 0 ] && [ $need_make -eq 0 ] && [ $need_curl_dev -eq 0 ]; then
     success "All required build tools are installed"
     return 0
   fi
@@ -108,11 +115,17 @@ windows_install_build_tools() {
       warn "Failed to install make via winget"
     fi
     
+    if [ $need_curl_dev -eq 1 ]; then
+      info "Installing curl development headers via winget..."
+      winget install --id MSYS2.MSYS2 --silent || \
+      warn "Failed to install MSYS2 via winget for curl headers"
+    fi
+    
     # Refresh PATH after winget install
     export PATH="/c/msys64/mingw64/bin:/c/Program Files (x86)/GnuWin32/bin:$PATH"
     
     # Verify installation
-    if command -v gcc >/dev/null 2>&1 && command -v make >/dev/null 2>&1; then
+    if command -v gcc >/dev/null 2>&1 && command -v make >/dev/null 2>&1 && echo '#include <curl/curl.h>' | gcc -E - >/dev/null 2>&1; then
       success "Build tools installed successfully via winget"
       return 0
     fi
@@ -132,10 +145,15 @@ windows_install_build_tools() {
       choco install make -y || warn "Failed to install make via chocolatey"
     fi
     
+    if [ $need_curl_dev -eq 1 ]; then
+      info "Installing curl via chocolatey..."
+      choco install curl -y || warn "Failed to install curl via chocolatey"
+    fi
+    
     # Refresh PATH
     export PATH="/c/tools/mingw64/bin:$PATH"
     
-    if command -v gcc >/dev/null 2>&1 && command -v make >/dev/null 2>&1; then
+    if command -v gcc >/dev/null 2>&1 && command -v make >/dev/null 2>&1 && echo '#include <curl/curl.h>' | gcc -E - >/dev/null 2>&1; then
       success "Build tools installed successfully via chocolatey"
       return 0
     fi
@@ -155,16 +173,22 @@ windows_install_build_tools() {
       scoop install make || warn "Failed to install make via scoop"
     fi
     
-    if command -v gcc >/dev/null 2>&1 && command -v make >/dev/null 2>&1; then
+    if [ $need_curl_dev -eq 1 ]; then
+      info "Installing curl via scoop..."
+      scoop install curl || warn "Failed to install curl via scoop"
+    fi
+    
+    if command -v gcc >/dev/null 2>&1 && command -v make >/dev/null 2>&1 && echo '#include <curl/curl.h>' | gcc -E - >/dev/null 2>&1; then
       success "Build tools installed successfully via scoop"
       return 0
     fi
   fi
   
   # If we reach here, automatic installation failed
-  if [ $need_gcc -eq 1 ] || [ $need_make -eq 1 ]; then
+  if [ $need_gcc -eq 1 ] || [ $need_make -eq 1 ] || [ $need_curl_dev -eq 1 ]; then
     error "Could not automatically install build tools. Please install manually:
-  - Option 1: Install MSYS2 from https://www.msys2.org/
+  - Option 1: Install MSYS2 from https://www.msys2.org/, then run:
+      pacman -S mingw-w64-x86_64-gcc mingw-w64-x86_64-make mingw-w64-x86_64-curl
   - Option 2: Install MinGW-w64 from https://winlibs.com/
   - Option 3: Use WSL (Windows Subsystem for Linux)
   
